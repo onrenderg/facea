@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Detection Test</title>
+    <script src="static/js/face-api.min.js"></script>
+</head>
+
+<body>
+    <div id="latestlog" style="color: white; background: rgba(0,0,0,0.5); padding: 10px; margin-bottom: 10px;"></div>
+    <div id="descriptor"></div>
+    <!-- center video in html  -->
+    <video id="video" autoplay muted playsinline width="640" height="480" style="display: block; margin: auto;"></video>
+
+    <script>
+        // states 
+
+        //for blink detection
+
+
+
+        // global var 
+        const video = document.getElementById('video');
+        var latestlog = document.getElementById('latestlog');
+        var descriptor = document.getElementById('descriptor');
+        const canvas = document.createElement('canvas');
+
+
+
+
+
+        // functions
+        const MODEL_URL = 'static/models';
+        async function loadModels() {
+
+            try {
+                latestlog.innerHTML = "Loading models...";
+                // await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
+                await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+                await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+                await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+                latestlog.innerHTML = "Models loaded successfully!";
+            } catch (error) {
+                latestlog.innerHTML = "Error: " + error.message;
+            }
+        }
+
+        // functions
+        async function startCamera() {
+            videoStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment', width: 320, height: 240 }
+            });
+            video.srcObject = videoStream;
+        }
+
+
+
+
+        // function
+        // ==================== DETECT LOOP ====================
+        let eyesClosedFrameCount = 0;
+        const COOLDOWN = 5000;               // Time between captures (ms)
+        const REQUIRED_CLOSED_FRAMES = 3;    // Frames eyes must be closed3
+
+        function detectEyesClosed(landmarks) {
+            const leftEye = landmarks.getLeftEye();
+            const rightEye = landmarks.getRightEye();
+
+            // Vertical distance between upper and lower eyelid
+            const leftDist = Math.abs(leftEye[1].y - leftEye[5].y);
+            const rightDist = Math.abs(rightEye[1].y - rightEye[5].y);
+
+            const eyesLookClosed = (leftDist < 5 && rightDist < 5);
+
+            if (eyesLookClosed) {
+                eyesClosedFrameCount++;
+            } else {
+                eyesClosedFrameCount = 0;  // Reset when eyes open
+            }
+
+            // Only return true if closed for required consecutive frames
+            return eyesClosedFrameCount >= REQUIRED_CLOSED_FRAMES;
+        }
+
+        // function
+        let lastCaptureTime = 0;
+        let iteration = 0;
+        function captureFrame() {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const dataURL = canvas.toDataURL('image/jpeg');
+            // show image in html
+            const img = document.createElement('img');
+            img.src = dataURL;
+            document.body.appendChild(img);
+        }
+        async function detectLoop() {
+
+            try {
+                // Detect face with landmarks only (no descriptor needed)
+                const detection = await faceapi
+                    .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+                    .withFaceLandmarks();
+
+                if (!detection) {
+                    latestlog.innerHTML = "No face detected!";
+                } else {
+                    // Show detection confidence percentage
+                    const confidence = (detection.detection.score * 100).toFixed(1);
+
+                    // Check if eyes are closed (blink detection)
+                    const closed = detectEyesClosed(detection.landmarks);
+
+                    if (closed) {
+                        const now = Date.now();
+
+                        // Check cooldown to avoid multiple captures
+                        if ((now - lastCaptureTime) > COOLDOWN) {
+                            lastCaptureTime = now;
+                            latestlog.innerHTML = `Blink detected! Computing descriptor...`;
+
+                            // Only compute descriptor when blink is confirmed
+                            const withDescriptor = await faceapi
+                                .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+                                .withFaceLandmarks()
+                                .withFaceDescriptor();
+
+                            if (withDescriptor) {
+                                // withDescriptor.descriptor is a Float32Array of 128 values also show iteration number
+                                descriptor.innerHTML = `Descriptor iteration no : ${iteration++} (${Array.from(withDescriptor.descriptor).slice(0, 5).map(v => v.toFixed(3)).join(', ')}...]`;
+                                captureFrame();
+                            }
+                        } else {
+                            latestlog.innerHTML = `Face detected: ${confidence}% (Cooldown: ${Math.ceil((COOLDOWN - (now - lastCaptureTime)) / 1000)}s)`;
+                        }
+                    } else {
+                        latestlog.innerHTML = `Face detected: ${confidence}% - Blink to capture`;
+                    }
+                }
+            } catch (error) {
+                latestlog.innerHTML = "Error: " + error.message;
+            }
+
+            requestAnimationFrame(detectLoop);
+        }
+
+        // mainflow
+        async function main() {
+            // Step 1: Load the face-api models
+            await loadModels();
+
+            // Step 2: Start the camera stream
+            await startCamera();
+
+            // Step 3: Start the detection loop at video onloadeddata event when video  data is avaialbe for element to play
+            video.onloadeddata = function () {
+                detectLoop();
+            };
+        }
+
+        main();
+
+    </script>
+</body>
+
+</html>
