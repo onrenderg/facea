@@ -31,7 +31,7 @@
 
 
 
-        // functions
+        // function
         const MODEL_URL = 'static/models';
         async function loadModels() {
 
@@ -47,11 +47,15 @@
             }
         }
 
-        // functions
+        // function
         async function startCamera() {
-            videoStream = await navigator.mediaDevices.getUserMedia({
-                // video: { facingMode: 'environment', width: 320, height: 240 }
-                video: { facingMode: 'user', width: 320, height: 240 }
+            const videoStream = await navigator.mediaDevices.getUserMedia({
+
+                video: {
+                    facingMode: 'user',
+                    width: 320,
+                    height: 240
+                }
 
             });
             video.srcObject = videoStream;
@@ -60,8 +64,10 @@
 
 
 
-        // function
+
         // ==================== DETECT LOOP ====================
+
+        // function
         let eyesClosedFrameCount = 0;
         const COOLDOWN = 5000;               // Time between captures (ms)
         const REQUIRED_CLOSED_FRAMES = 3;    // Frames eyes must be closed3
@@ -87,8 +93,6 @@
         }
 
         // function
-        let lastCaptureTime = 0;
-        let iteration = 0;
         function captureFrame() {
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
@@ -100,6 +104,9 @@
             img.src = dataURL;
             document.body.appendChild(img);
         }
+
+        let lastCaptureTime = 0;
+        let iteration = 0;
         async function detectLoop() {
 
             try {
@@ -110,7 +117,8 @@
 
                 if (!detection) {
                     latestlog.innerHTML = "No face detected!";
-                } else {
+                }
+                else {
                     // Show detection confidence percentage
                     const confidence = (detection.detection.score * 100).toFixed(1);
 

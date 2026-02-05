@@ -1,0 +1,111 @@
+ <html>
+  <head>
+    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+
+  </head>
+
+  <body>
+
+    <div id="log"> </div>
+    <video   id="video" autoplay muted> </video>
+
+    
+    <script>
+
+
+      var video = document.getElementById('');
+      var log =  document.getElementById('log');
+      const MODEL_URL =  'static/models';
+
+
+
+
+
+      
+      
+      
+      
+      
+      async function loadModels() 
+      {
+        try 
+        {
+         log.innerHTML = "Loading models"            
+        }
+        catch (err)
+        {
+          log.innerHTML = "Error" + err.message;
+        }
+      }
+      
+      async function startCamera()
+      {
+
+      }
+
+      
+      let eyesClosedFrameCount = 0;
+      const COOLDOWN_MILISECOND = 5000; // as Date.now() return milisecond
+      const REQ_FRAMES = 3;
+
+      // 68 landmark point using only  eyes landmark points  6 per eye 
+      function detectEyesClosed(landmark) 
+      {
+        const leftEye = landmark.getLeftEye();
+        const rightEye = landmark.getRightEye();
+
+        
+        const leftEyeHeight  = Math.abs(leftEye[1].y - leftEye[5].y);
+        const rightEyeHeight  =  Math.abs(rightEye[1].y - rightEye[5].y);
+
+        
+        
+        // based on webcam res 
+        const eyeLookClosed = (leftEyeHeight < 5 && rightEyeHeight < 5);
+
+
+
+        if (eyeLookClosed)
+      {
+        
+        eyesClosedFrameCount++;
+
+      } else 
+      {
+        eyesClosedFrameCount = 0;
+
+      }
+
+      
+      return eyesClosedFrameCount >= REQ_FRAMES;
+      
+
+
+
+      }
+      async function detectionLoop()
+      {
+
+      }
+
+      async function main() 
+      {
+
+        await loadModels();
+        await startCamera();
+        video.onloaddata =     function ()
+        {
+          detectionLoop();
+
+        }
+
+        
+      }
+
+      main()
+    
+    </script>
+
+
+  </body>
+</html>
